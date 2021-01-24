@@ -60,10 +60,15 @@ def login(s: requests.Session, username, password):
         exit(1)
     else:
         print("登录成功")
+        return requests.utils.dict_from_cookiejar(r.cookies)  # 以dict形式返回cookies
 
 
-def get_daily(s: requests.Session):
-    daily = s.get("https://app.ucas.ac.cn/ncov/api/default/daily?xgh=0&app_id=ucas")
+def get_daily(s: requests.Session, cookies=None):
+    if cookies is None:
+        daily = s.get("https://app.ucas.ac.cn/ncov/api/default/daily?xgh=0&app_id=ucas")
+    else:
+        # 可以使用保存的cookies抓取前一日的填报信息，不需要再使用账号密码登录一次
+        daily = s.get("https://app.ucas.ac.cn/ncov/api/default/daily?xgh=0&app_id=ucas", cookies=cookies)
     # info = s.get("https://app.ucas.ac.cn/ncov/api/default/index?xgh=0&app_id=ucas")
     j = daily.json()
     d = j.get('d', None)
@@ -74,7 +79,7 @@ def get_daily(s: requests.Session):
         exit(1)
 
 
-def submit(s: requests.Session, old: dict):
+def submit(s: requests.Session, old: dict, cookies=None):
     new_daily = {
         'realname': old['realname'],
         'number': old['number'],
@@ -132,7 +137,11 @@ def submit(s: requests.Session, old: dict):
             send_email(sender_email, sender_email_passwd, receiver_email, msg, new_daily)
         return
 
-    r = s.post("https://app.ucas.ac.cn/ncov/api/default/save", data=new_daily)
+    if cookies is None:
+        r = s.post("https://app.ucas.ac.cn/ncov/api/default/save", data=new_daily)
+    else:
+        # 可以使用保存的cookies进行填报，不需要再使用账号密码登录一次
+        r = s.post("https://app.ucas.ac.cn/ncov/api/default/save", data=new_daily, cookies=cookies)
     if debug:
         from urllib.parse import parse_qs, unquote
         import json
